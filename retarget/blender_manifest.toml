@@ -1,0 +1,12 @@
+schema_version = "1.0.0"
+id = "retarget"
+name = "Retarget"
+version = "0.9.0"
+tagline = "Tools for Character Rig Conversion"
+maintainer = "KBS DEV"
+type = "add-on"
+tags = ["Animation", "Rigging"]
+blender_version_min = "5.0.0"
+license = ["SPDX:GPL-3.0-or-later"]
+website = "https://github.com/"
+copyright = ["2025 maylog"]
