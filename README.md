@@ -46,9 +46,9 @@ here's all the feature
 
 # FAQ
 
-- This addon don't support the Expy Kit preset you have to make some change (the python file ) the second line from 
+- This addon does not support Expy kit preset, you must make changes (the Python file) of the second line  from 
    "skeleton = bpy.context.object.data.expykit_retarget " to "skeleton = bpy.context.object.data.retarget_retarget"
 
-- Always check the scale of your 2 armature before you you align the bone
+- Always check the scale of your armatures 2 before aligning the bone
 
-- Transfer Root Motion don't work as expected when there's many selection ( it's a known issue)
+- "Transfer Root Motion" does not work as expected when there is a lot of selection (this is a known issue)
