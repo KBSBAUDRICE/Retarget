@@ -13,7 +13,7 @@ Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) with many 
 - Align bone
 - Multiple selection support
 
-An a lot of bug Fix and much more
+Lots of bug fixes and more
 
 ----------------------
 here's all the feature
