@@ -2,11 +2,13 @@ import os
 
 import bpy
 from bpy.props import StringProperty
-
+import rna_keymap_ui
 from . import preset_handler
+from bpy.types import Operator, AddonPreferences
 
 
-class RetargetToClipboard(bpy.types.Operator):
+
+class RetargetToClipboard(Operator):
     """Copy Retarget Preferences to the clipboard"""
     bl_idname = "wm.retarget_to_clipboard"
     bl_label = "Copy Stuff to the clipboard"
@@ -21,8 +23,7 @@ class RetargetToClipboard(bpy.types.Operator):
         context.window_manager.clipboard = self.clip_text
         return {'FINISHED'}
 
-
-class RetargetPrefs(bpy.types.AddonPreferences):
+class RetargetPrefs(AddonPreferences):
     bl_idname = __package__
 
     def draw(self, context):
@@ -58,11 +59,9 @@ class RetargetPrefs(bpy.types.AddonPreferences):
         op = sp_col.operator(RetargetToClipboard.bl_idname, text='Path of stored rig presets')
         op.clip_text = preset_handler.get_retarget_dir()
 
-
 def register_classes():
     bpy.utils.register_class(RetargetPrefs)
     bpy.utils.register_class(RetargetToClipboard)
-
 
 def unregister_classes():
     bpy.utils.unregister_class(RetargetPrefs)

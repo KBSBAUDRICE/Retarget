@@ -10,7 +10,7 @@ from bpy.props import IntProperty
 from bpy.props import StringProperty
 from bpy.props import CollectionProperty
 from bpy.props import FloatVectorProperty
-
+from bpy.types import Operator
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras import anim_utils
 
@@ -19,7 +19,6 @@ from itertools import chain
 from .rig_mapping import bone_mapping
 from . import preset_handler
 from . import bone_utils
-from . import fbx_helper
 
 from mathutils import Vector
 from mathutils import Matrix
@@ -37,7 +36,7 @@ CONSTR_TYPES = bpy.types.PoseBoneConstraints.bl_rna.functions['new'].parameters[
 CONSTR_TYPES.append('ALL_TYPES')
 
 
-class ConstraintStatus(bpy.types.Operator):
+class ConstraintStatus(Operator):
     """Apply/Disable/Remove bone constraints."""
     bl_idname = "object.retarget_set_constraints_status"
     bl_label = "Apply/Disable/Remove Constraints"
@@ -132,7 +131,7 @@ class ConstraintStatus(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class SelectConstrainedControls(bpy.types.Operator):
+class SelectConstrainedControls(Operator):
     bl_idname = "armature.retarget_select_constrained_ctrls"
     bl_label = "Select constrained controls"
     bl_description = "Select bone controls with constraints or animations"
@@ -199,7 +198,7 @@ class SelectConstrainedControls(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class AlignBone(bpy.types.Operator):
+class AlignBone(Operator):
     bl_idname = "armature.retarget_transfert_bone"
     bl_label = "Align Bones"
     bl_description = "Align the rest positions, it does not affect the mesh (select at least 2 armatures) (apply the scale in case of problem) IT WILL BREACK THE ACTIONS OF THIS ARMATURE"
@@ -294,6 +293,14 @@ class AlignBone(bpy.types.Operator):
             if not src_skeleton:
                 continue
 
+            root_prefix = ""
+            for bone in ob.pose.bones:
+                if ":" in bone.name and ":" not in src_skeleton.root:
+                    root_prefix = bone.name.split(":")[0] + ":"
+                    break
+            # root
+            src_skeleton.root = root_prefix + src_skeleton.root
+
             bone_names_map = src_skeleton.conversion_map(trg_skeleton)
             
             bpy.ops.object.mode_set(mode='EDIT')
@@ -316,7 +323,7 @@ class AlignBone(bpy.types.Operator):
         bpy.ops.object.mode_set(mode=current_m)
         return {'FINISHED'}
 
-class RevertDotBoneNames(bpy.types.Operator):
+class RevertDotBoneNames(Operator):
     """Reverts dots in bones that have renamed by Unreal Engine"""
     bl_idname = "object.retarget_dot_bone_names"
     bl_label = "Revert dots in Names (from UE4 renaming)"
@@ -364,7 +371,7 @@ class RevertDotBoneNames(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class ConvertBoneNaming(bpy.types.Operator):
+class ConvertBoneNaming(Operator):
     """Convert Bone Names between Naming Convention"""
     bl_idname = "object.retarget_convert_bone_names"
     bl_label = "Rename Bones"
@@ -396,11 +403,6 @@ class ConvertBoneNaming(bpy.types.Operator):
         default=False
     )
 
-    replace_existing: BoolProperty(
-        name="Take Over Existing Names",
-        description='Bones already named after Target Preset will get ".001" suffix',
-        default=True
-    )
 
     prefix_separator: StringProperty(
         name="Prefix ",
@@ -435,7 +437,7 @@ class ConvertBoneNaming(bpy.types.Operator):
         return src_skeleton, trg_skeleton
 
     @staticmethod
-    def rename_bones(obj, src_skeleton, trg_skeleton, separator="", replace_existing=False, skip_ik=False, reset=True):
+    def rename_bones(obj, src_skeleton, trg_skeleton, separator="", skip_ik=False, reset=True):
         # FIXME: separator should not be necessary anymore, as it is handled at preset validation
         bone_names_map = src_skeleton.conversion_map(trg_skeleton, skip_ik=skip_ik)
 
@@ -460,13 +462,6 @@ class ConvertBoneNaming(bpy.types.Operator):
 
             if not src_bone:
                 continue
-
-            if replace_existing:
-                pre_existing_bone = obj.data.bones.get(trg_name, None)
-                if pre_existing_bone:
-                    pre_existing_name = pre_existing_bone.name
-                    pre_existing_bone.name = f"{trg_name}.001"
-                    additional_bones[pre_existing_name] = pre_existing_bone.name
 
             if(separator != "" and separator != ":"):
 
@@ -527,18 +522,18 @@ class ConvertBoneNaming(bpy.types.Operator):
                     if self.anim_all_tracks:
                         actions = [action for action in bpy.data.actions if validate_actions(action, armature.path_resolve)]
                     else:
-                        actions.append(armature.animation_data.action)
-                        if self.anim_name_tracks != "":
-                            for action in bpy.data.actions:
-                                if action.name.startswith(self.anim_name_tracks)  and action != armature.animation_data.action:
-                                    actions.append(action)
+                        if armature.animation_data and armature.animation_data.action:
+                            actions.append(armature.animation_data.action)
+                            if self.anim_name_tracks != "":
+                                for action in bpy.data.actions:
+                                    if action.name.startswith(self.anim_name_tracks)  and action != armature.animation_data.action:
+                                        actions.append(action)
 
                 else:
                     actions = []
 
                 bone_names_map = self.rename_bones(armature, src_skeleton, trg_skeleton,
-                                                self.prefix_separator,
-                                                self.replace_existing)
+                                                self.prefix_separator)
 
                 if armature.animation_data and armature.data.animation_data:
                     for driver in chain(armature.animation_data.drivers, armature.data.animation_data.drivers):
@@ -593,8 +588,8 @@ class ConvertBoneNaming(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class CreateTransformOffset(bpy.types.Operator):
-    """Apply the scale ( without breaking the animation it recommaded to set to rest pose) / Scale the Character and setup an Empty to preserve final transform"""
+class CreateTransformOffset(Operator):
+    """Apply the scale ( without breaking the animation) / Scale the Character and setup an Empty to preserve final transform"""
     bl_idname = "object.retarget_create_offset"
     bl_label = "Apply Scale / Create Scale Offset"
     bl_options = {'REGISTER', 'UNDO'}
@@ -784,11 +779,12 @@ class CreateTransformOffset(bpy.types.Operator):
                 if self.fix_all_animations:
                     actions = [action for action in bpy.data.actions if validate_actions(action, arm_ob.path_resolve)]
                 else:
-                    actions.append(arm_ob.animation_data.action)
-                    if self.fix_action_name_animations:
-                        for action in bpy.data.actions:
-                            if action.name.startswith(self.fix_action_name_animations) and action != arm_ob.animation_data.action:
-                                actions.append(action)
+                    if arm_ob.animation_data and arm_ob.animation_data.action:
+                        actions.append(arm_ob.animation_data.action)
+                        if self.fix_action_name_animations:
+                            for action in bpy.data.actions:
+                                if action.name.startswith(self.fix_action_name_animations) and action != arm_ob.animation_data.action:
+                                    actions.append(action)
 
                 for action in actions:
 
@@ -829,11 +825,11 @@ class CreateTransformOffset(bpy.types.Operator):
         return {'FINISHED'}
    
 
-class ExtractMetarig(bpy.types.Operator):
+class ExtractMetarig(Operator):
     """Create Metarig from current object"""
     bl_idname = "object.retarget_extract_metarig"
     bl_label = "Extract Metarig"
-    bl_description = "Create Metarig from current Armature , IT WILL BREACK THE ACTIONS OF THIS ARMATURE"
+    bl_description = "Create Metarig from current Armature , (place your character in the center of the scene)"
     bl_options = {'REGISTER', 'UNDO'}
 
     rig_preset: EnumProperty(items=preset_handler.iterate_presets_with_current,
@@ -947,6 +943,8 @@ class ExtractMetarig(bpy.types.Operator):
                 
             if not src_skeleton:
                 continue
+
+
 
             # TODO: remove action, bring to rest pose
             if self.apply_transforms:
@@ -1312,7 +1310,7 @@ class ExtractMetarig(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class ActionRangeToScene(bpy.types.Operator):
+class ActionRangeToScene(Operator):
     """Set Playback range to current action Start/End"""
     bl_idname = "object.retarget_action_to_range"
     bl_label = "Action Range to Scene"
@@ -1337,6 +1335,15 @@ class ActionRangeToScene(bpy.types.Operator):
         return True
 
     def execute(self, context):
+        if not context.object:
+            return {'FINISHED'}
+        
+        if not context.object.animation_data:
+            return {'FINISHED'}
+        
+        if not context.object.animation_data.action:
+            return {'FINISHED'}
+        
         action_range = context.object.animation_data.action.frame_range
 
         scn = context.scene
@@ -1362,7 +1369,7 @@ class ActionRangeToScene(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class MergeHeadTails(bpy.types.Operator):
+class MergeHeadTails(Operator):
     """Connect head/tails when closer than given max distance"""
     bl_idname = "armature.retarget_merge_head_tails"
     bl_label = "Merge Head/Tails"
@@ -1472,7 +1479,7 @@ def limit_scale(obj):
     constr.use_max_z = True
 
 
-class ConvertGameFriendly(bpy.types.Operator):
+class ConvertGameFriendly(Operator):
     """Convert Rigify (0.5) rigs to a Game Friendly hierarchy"""
     bl_idname = "armature.retarget_convert_gamefriendly"
     bl_label = "Rigify Game Friendly"
@@ -1602,9 +1609,9 @@ class ConvertGameFriendly(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class ConstrainToArmature(bpy.types.Operator):
+class ConstrainToArmature(Operator):
     bl_idname = "armature.retarget_constrain_to_armature"
-    bl_label = "Bind to Active Armature / Transfer Pose"
+    bl_label = "Bind to Active Armature"
     bl_description = "Constrain bones of selected armatures to active armature (select at least 2 armatures)"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -1626,16 +1633,9 @@ class ConstrainToArmature(bpy.types.Operator):
     name_replace_with: StringProperty(name="Replace in name with", default="")
     name_suffix: StringProperty(name="Add suffix to name", default="")
 
-    if bpy.app.version[0] < 4:
-        ret_bones_layer: IntProperty(name="Layer",
-                                    min=0, max=29, default=24,
-                                    description="Armature Layer to use for connection bones")
-        use_legacy_index = True
-    else:
-        ret_bones_collection: StringProperty(name="Layer",
+    ret_bones_collection: StringProperty(name="Layer",
                                              default="Retarget Bones",
                                              description="Armature collection to use for connection bones")
-        use_legacy_index = False
 
     match_transform: EnumProperty(items=[
         ('None', "- None -", "Don't match any transform"),
@@ -1753,11 +1753,11 @@ class ConstrainToArmature(bpy.types.Operator):
     action_range: BoolProperty(name= "Action Range to Scene", 
                                description="Set Playback range to current action Start/End",
                                default=True)
-    transfer_pose: BoolProperty(name= "Transfer Pose", 
+    transfer_pose: BoolProperty(name= "Save The Pose", 
                                 description="Apply the Constrain To save the Pose",
                                 options={'SKIP_SAVE'},
                                 default=False)
-    custom_Frame: IntProperty(name="Frame", description="Select the Frame for {Transfer Pose}", default=1)
+    custom_Frame: IntProperty(name="Frame", description="Select the Frame for {Save The Pose}", default=1)
     
     @property
     def _bind_constraints(self):
@@ -1908,12 +1908,6 @@ class ConstrainToArmature(bpy.types.Operator):
         row.separator()
         row.prop(self, 'constrain_root', text="")
 
-        if self.constrain_root != 'None':
-            row = column.split(factor=self._prop_indent, align=True)
-            row.label(text="")
-            row.prop_search(self, 'root_motion_bone',
-                            context.active_object.data,
-                            "bones", text="")
         sr_ob = None
         for ob in context.selected_objects:
             if ob.type == 'ARMATURE' and ob != context.active_object:
@@ -1925,6 +1919,13 @@ class ConstrainToArmature(bpy.types.Operator):
             row.label(text="")
             row.prop_search(self, 'root_motion_bone_sr',
                             sr_ob.data,
+                            "bones", text="")
+            
+        if self.constrain_root != 'None':
+            row = column.split(factor=self._prop_indent, align=True)
+            row.label(text="")
+            row.prop_search(self, 'root_motion_bone',
+                            context.active_object.data,
                             "bones", text="")
 
         if self.constrain_root != 'None':
@@ -1994,13 +1995,8 @@ class ConstrainToArmature(bpy.types.Operator):
             row.prop(self, "root_cp_rot_z", text="Z", toggle=True)
 
         column.separator()
-        if self.use_legacy_index:
-            row = column.split(factor=self._prop_indent, align=True)
-            row.separator()
-            row.prop(self, 'ret_bones_layer')
-        else:
-            row = column.row()
-            row.prop(self, 'ret_bones_collection', text="Layer")
+        row = column.row()
+        row.prop(self, 'ret_bones_collection', text="Layer")
         
         row = column.split(factor=0.30, align=True)
         row.label(text="")
@@ -2123,7 +2119,7 @@ class ConstrainToArmature(bpy.types.Operator):
                 if ":" in bone.name and ":" not in src_skeleton.root:
                     root_prefix = bone.name.split(":")[0] + ":"
                     break
-            # bug fix
+            # root
             src_skeleton.root = root_prefix + src_skeleton.root
             if fit_scale:
                 ob_height = (ob.matrix_world @ ob.pose.bones[getattr(src_skeleton.spine, self.fit_target_scale)].bone.head_local)
@@ -2140,6 +2136,8 @@ class ConstrainToArmature(bpy.types.Operator):
                         for slot in trg_action.slots:
 
                             if slot.target_id_type != 'OBJECT':
+                                continue
+                            if not  (trg_ob in slot.users() ):
                                 continue
 
                             channelbag = anim_utils.action_get_channelbag_for_slot(trg_action, slot)
@@ -2209,12 +2207,11 @@ class ConstrainToArmature(bpy.types.Operator):
             # hacky, but will do it: keep target armature in place during binding
             limit_constraints = self._add_limit_constraintss(trg_ob)
             
-            if not self.use_legacy_index:
-                try:
-                    ret_collection = trg_ob.data.collections[self.ret_bones_collection]
-                except KeyError:
-                    ret_collection = trg_ob.data.collections.new(self.ret_bones_collection)
-                    ret_collection.is_visible = False
+            try:
+                ret_collection = trg_ob.data.collections[self.ret_bones_collection]
+            except KeyError:
+                ret_collection = trg_ob.data.collections.new(self.ret_bones_collection)
+                ret_collection.is_visible = False
 
             # create Retarget bones
             bpy.ops.object.mode_set(mode='EDIT')
@@ -2322,17 +2319,10 @@ class ConstrainToArmature(bpy.types.Operator):
                         src_ik = ob.data.bones[src_name]
                         new_bone.roll = bone_utils.ebone_roll_to_vector(new_bone, src_ik.z_axis)
 
-                if self.use_legacy_index:
-                    new_bone.layers[self.ret_bones_layer] = True
-                    for i, L in enumerate(new_bone.layers):
-                        # FIXME: should be util function
-                        if i == self.ret_bones_layer:
-                            continue
-                        new_bone.layers[i] = False
-                else:
-                    for coll in new_bone.collections:
-                        coll.unassign(new_bone)
-                    ret_collection.assign(new_bone)
+            
+                for coll in new_bone.collections:
+                    coll.unassign(new_bone)
+                ret_collection.assign(new_bone)
 
                 if self.math_look_at:
                     if src_name == src_skeleton.right_arm_ik.arm:
@@ -2356,18 +2346,10 @@ class ConstrainToArmature(bpy.types.Operator):
 
                         look_ats[src_name] = look_bone.name
 
-                        if self.use_legacy_index:
-                            look_bone.layers[self.ret_bones_layer] = True
-                            for i, L in enumerate(look_bone.layers):
-                                # FIXME: should be util function
-                                if i == self.ret_bones_layer:
-                                    continue
-                                look_bone.layers[i] = False
-                        else:
-                            for coll in look_bone.collections:
-                                coll.unissign(look_bone)
-                            ret_collection.assign(look_bone)
-                            
+                        for coll in look_bone.collections:
+                            coll.unissign(look_bone)
+                        ret_collection.assign(look_bone)
+                        
             for constr in limit_constraints:
                 trg_ob.constraints.remove(constr)
 
@@ -2539,7 +2521,7 @@ def validate_actions(action: bpy.types.Action, path_resolve: callable):
     return valid > 0  # Valid.
 
 
-class BakeConstrainedActions(bpy.types.Operator):
+class BakeConstrainedActions(Operator):
     bl_idname = "armature.retarget_bake_constrained_actions"
     bl_label = "Bake Constrained Actions"
     bl_description = "Bake Actions constrained from another Armature. No need to select two armatures"
@@ -2564,15 +2546,19 @@ class BakeConstrainedActions(bpy.types.Operator):
         layout = self.layout
         column = layout.column()
 
-        i = 0
+        test = True
         for to_bake in context.selected_objects:
+            if to_bake.type != 'ARMATURE':
+                continue
             trg_ob = self.get_trg_ob(to_bake)
             if not trg_ob:
                 continue
-            i = i + 1
+            if not trg_ob.animation_data and not trg_ob.animation_data.action:
+                continue
+            test = False
             column.label(text=f"Baking from {trg_ob.name} to {to_bake.name}")
 
-        if i == 0:
+        if test:
             row = column.split(factor=0.30, align=True)
             row.label(text="")
             row.label(text="NO CONSTRAIN FOUND", icon='ERROR')
@@ -2617,6 +2603,7 @@ class BakeConstrainedActions(bpy.types.Operator):
 
                 if subtarget.endswith("_RET"):
                     return(constr.target)
+        return None
 
     def execute(self, context):
 
@@ -2636,6 +2623,7 @@ class BakeConstrainedActions(bpy.types.Operator):
             
             if not trg_ob:
                 continue
+
             constr_bone_names = []
             for pb in bone_utils.get_constrained_controls(ob, unselect=True, use_deform=not self.exclude_deform):
                 
@@ -2648,7 +2636,8 @@ class BakeConstrainedActions(bpy.types.Operator):
             if self.bake_similar:
                 actions = list(bpy.data.actions)
             else:
-                actions.append(trg_ob.animation_data.action)
+                if trg_ob.animation_data and trg_ob.animation_data.action:
+                    actions.append(trg_ob.animation_data.action)
 
 
             for action in actions:  # convert to list beforehand to avoid picking new actions
@@ -2669,7 +2658,7 @@ class BakeConstrainedActions(bpy.types.Operator):
                 
                 ob.animation_data.action.use_fake_user = self.fake_user_new
                 
-                new_name = f"{ob.name} | {action.name}"
+                new_name = f"{ob.name}|{action.name}"
 
                 ob.animation_data.action.name = new_name
 
@@ -2733,7 +2722,7 @@ def add_loc_rot_key(bone, frame, options):
     for i in range(channels):
         bone.keyframe_insert(mode, index=i, frame=frame, options=options)
 
-class AddRoot(bpy.types.Operator):
+class AddRoot(Operator):
 
     bl_idname = "armature.retarget_add_root"
     bl_label = "Add Root Bone"
@@ -2851,7 +2840,7 @@ class AddRoot(bpy.types.Operator):
 
 
 
-class AddRootMotion(bpy.types.Operator):
+class AddRootMotion(Operator):
     bl_idname = "armature.retarget_add_rootmotion"
     bl_label = "Transfer Root Motion"
     bl_description = "Bring Motion to Root Bone, ( apply the scale if there's problem )"
@@ -3369,102 +3358,28 @@ class ActionNameCandidates(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name="Name Candidate", default="")
 
 
-class RenameActionsFromFbxFiles(bpy.types.Operator, ImportHelper):
-    bl_idname = "armature.retarget_rename_actions_fbx"
-    bl_label = "Rename Actions from fbx data..."
-    bl_description = "Rename Actions from candidate fbx files"
-    bl_options = {'PRESET', 'UNDO'}
-
-    directory: StringProperty()
-
-    filename_ext = ".fbx"
-    filter_glob: StringProperty(default="*.fbx", options={'HIDDEN'})
-
-    files: CollectionProperty(
-        name="File Path",
-        type=bpy.types.OperatorFileListElement,
-    )
-
-    contains: StringProperty(name="Containing", default="|")
-    starts_with: StringProperty(name="Starting with", default="Action")
-
-    def execute(self, context):
-        fbx_durations = dict()
-        for f in self.files:
-            fbx_path = os.path.join(self.directory, f.name)
-            local_time = fbx_helper.get_fbx_local_time(fbx_path)
-            if not local_time:
-                continue
-
-            duration = fbx_helper.convert_from_fbx_duration(*local_time)
-            duration = round(duration, 5)
-            duration = str(duration)
-            action_name = os.path.splitext(f.name[:-3])[0]
-
-            try:
-                fbx_durations[duration].append(action_name)
-            except KeyError:  # entry doesn'exist yet
-                fbx_durations[duration] = action_name
-            except AttributeError:  # existing entry is not a list
-                current = fbx_durations[duration]
-                fbx_durations[duration] = [current, action_name]
-
-        path_resolve = context.object.path_resolve
-        for action in bpy.data.actions:
-            skip_action = True
-
-            if self.contains and self.contains in action.name:
-                skip_action = False
-            if skip_action and self.starts_with and action.name.startswith(self.starts_with):
-                skip_action = False
-            
-            if skip_action:
-                continue
-
-            if not validate_actions(action, path_resolve):
-                continue
-
-            start, end = action.frame_range
-            ac_duration = end - start
-            ac_duration /= context.scene.render.fps
-            ac_duration = round(ac_duration, 5)
-            ac_duration = str(ac_duration)
-
-            try:
-                fbx_match = fbx_durations[ac_duration]
-            except KeyError:
-                continue
-
-            if not fbx_match:
-                continue
-            if isinstance(fbx_match, typing.List):
-                for name in fbx_match:
-                    entry = action.retarget_name_candidates.add()
-                    entry.name = name
-                continue
-
-            action.name = fbx_match
-
-        return {'FINISHED'}
+classes = (
+	 ActionRangeToScene,
+	 ConstraintStatus,
+	 SelectConstrainedControls,
+	 AlignBone,
+	 ConvertBoneNaming,
+	 ConvertGameFriendly,
+	 ExtractMetarig,
+	 MergeHeadTails,
+	 ConstrainToArmature,
+	 BakeConstrainedActions,
+	 CreateTransformOffset,
+	 AddRoot,
+	 AddRootMotion,
+	 ActionNameCandidates,
+)
 
 
 def register_classes():
-    bpy.utils.register_class(ActionRangeToScene)
-    bpy.utils.register_class(ConstraintStatus)
-    bpy.utils.register_class(SelectConstrainedControls)
-    bpy.utils.register_class(AlignBone)
-    bpy.utils.register_class(ConvertBoneNaming)
-    bpy.utils.register_class(ConvertGameFriendly)
-    bpy.utils.register_class(ExtractMetarig)
-    bpy.utils.register_class(MergeHeadTails)
-    bpy.utils.register_class(RevertDotBoneNames)
-    bpy.utils.register_class(ConstrainToArmature)
-    bpy.utils.register_class(BakeConstrainedActions)
-    bpy.utils.register_class(RenameActionsFromFbxFiles)
-    bpy.utils.register_class(CreateTransformOffset)
-    bpy.utils.register_class(AddRoot)
-    bpy.utils.register_class(AddRootMotion)
-    bpy.utils.register_class(ActionNameCandidates)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    
 
     bpy.types.Action.retarget_name_candidates = bpy.props.CollectionProperty(type=ActionNameCandidates)
 
@@ -3472,19 +3387,5 @@ def register_classes():
 def unregister_classes():
     del bpy.types.Action.retarget_name_candidates
 
-    bpy.utils.unregister_class(ActionRangeToScene)
-    bpy.utils.unregister_class(ConstraintStatus)
-    bpy.utils.unregister_class(SelectConstrainedControls)
-    bpy.utils.unregister_class(AlignBone)
-    bpy.utils.unregister_class(ConvertBoneNaming)
-    bpy.utils.unregister_class(ConvertGameFriendly)
-    bpy.utils.unregister_class(ExtractMetarig)
-    bpy.utils.unregister_class(MergeHeadTails)
-    bpy.utils.unregister_class(RevertDotBoneNames)
-    bpy.utils.unregister_class(ConstrainToArmature)
-    bpy.utils.unregister_class(BakeConstrainedActions)
-    bpy.utils.unregister_class(RenameActionsFromFbxFiles)
-    bpy.utils.unregister_class(CreateTransformOffset)
-    bpy.utils.unregister_class(AddRoot)
-    bpy.utils.unregister_class(AddRootMotion)
-    bpy.utils.unregister_class(ActionNameCandidates)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
