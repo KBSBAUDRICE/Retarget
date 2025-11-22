@@ -1,5 +1,5 @@
 # Retarget
-Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) with many new feature 
+Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) with many new feature.
 It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to make the task easier. You can add your own preset in the N-panel
 
 # New
@@ -11,7 +11,6 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 - Vroid preset
 - Add Root Bone
 - Align bone
-- Multiple selection support
 
 Lots of bug fixes and more
 
@@ -45,9 +44,9 @@ here's all the feature
 
 # FAQ
 
+- Read each tooltip carefully; some actions only affect the current slot, while others affect other animations.
+
 - This addon does not support Expy kit preset, you must make changes of the second line  (preset file) from 
    "skeleton = bpy.context.object.data.expykit_retarget " to "skeleton = bpy.context.object.data.retarget_retarget"
-
-- Always check the scale of your armatures before aligning the bone
 
 - "Transfer Root Motion" does not work as expected when there is a lot of selection (this is a known issue)
