@@ -9,7 +9,6 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 - Multi selection support
 - Apply scale without breaking the animation
 - Vroid preset
-- Transfert pose
 - Add Root Bone
 - Align bone
 - Multiple selection support
@@ -22,7 +21,7 @@ here's all the feature
 
 # Binding
 
- - Bind to Active Armature / Transfer Pose
+ - Bind to Active Armature
  - Apply/disable/Remove constraints
  - Select Constrained Controls
  - Align Bones
@@ -40,7 +39,6 @@ here's all the feature
 
  - Action Range to Scene
  - Bake Constrained Actions
- - Rename Actions from .fbx data
  - Add Root Bone
  - Transfer Root Motion
 
