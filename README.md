@@ -5,7 +5,7 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 https://youtu.be/iXRW5t6eEjE
 
 ----------------------
-#FEATURES
+# FEATURES
 ----------------------
 
 # Binding
