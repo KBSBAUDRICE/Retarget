@@ -95,6 +95,7 @@ def register_classes():
     bpy.utils.register_class(add_keymap)
 
 def unregister_classes():
+
     bpy.utils.unregister_class(add_keymap)
     bpy.utils.unregister_class(RetargetPrefs)
     bpy.utils.unregister_class(RetargetToClipboard)

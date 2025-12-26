@@ -103,6 +103,25 @@ def ebone_roll_to_vector(bone, align_axis, axis_only=False):
 
     return roll
 
+def copy_modifier_properties(source_mod, dest_mod):
+    """
+    Copies properties from a source modifier to a destination modifier.
+    
+    :param source_mod: The original modifier (bpy.types.Modifier).
+    :param dest_mod: The new modifier (bpy.types.Modifier).
+    """
+    for attr_name in sorted(dir(source_mod)):
+        # Skip internal, read-only, or non-applicable properties
+        if attr_name.startswith("__") or attr_name in ["bl_rna", "type", "name"]:
+            continue
+        
+        try:
+            # Check if the property is not read-only before attempting to set
+            if not source_mod.is_property_readonly(attr_name):
+                setattr(dest_mod, attr_name, getattr(source_mod, attr_name))
+        except Exception:
+            # Some properties might raise exceptions even if not "readonly"
+            pass
 
 def copy_bone_constraints(bone_a, bone_b):
     """Copy all bone constraints from bone_A to bone_b and sets their writable attributes.

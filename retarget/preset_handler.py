@@ -6,13 +6,14 @@ import shutil
 import bpy
 from .rig_mapping.bone_mapping import HumanFingers, HumanSpine, HumanLeg, HumanArm, HumanSkeleton, SimpleFace
 
-PRESETS_SUBDIR = 'humanoid'
+PRESETS_SUBDIR = os.path.join("retarget", "humanoid")
 
 def get_retarget_dir():
     
-    user_preset_path = bpy.utils.extension_path_user(__package__, path= PRESETS_SUBDIR, create=True)
+    presets_dir = os.path.join("presets", PRESETS_SUBDIR)
+    retarget_dir = bpy.utils.user_resource('SCRIPTS', path= presets_dir, create=True)
     
-    return user_preset_path
+    return retarget_dir
 
 
 def install_presets():

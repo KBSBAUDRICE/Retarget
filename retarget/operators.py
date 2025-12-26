@@ -166,6 +166,8 @@ class SelectConstrainedControls(Operator):
             if ob.type != 'ARMATURE':
                 continue
 
+            bpy.ops.pose.select_all(action='DESELECT')
+
             if self.select_type == 'constr':
                 for pb in bone_utils.get_constrained_controls(ob, unselect=True, use_deform=not self.skip_deform):
                     pb.select = bool(pb.custom_shape) if self.has_shape else True
@@ -186,15 +188,19 @@ class SelectConstrainedControls(Operator):
 
                     channelbag = anim_utils.action_get_channelbag_for_slot(ob.animation_data.action, slot)
                   
-                    for fc in channelbag.fcurves:
-                        bone_name = crv_bone_name(fc)
-                        if not bone_name:
-                            continue
-                        try:
-                            bone = ob.pose.bones[bone_name]
-                        except KeyError:
-                            continue
-                        bone.select = True
+                    for gp in channelbag.groups:
+
+                        if gp.name in ob.pose.bones:
+
+                            try:
+                                bone = ob.pose.bones[gp.name]
+                            except KeyError:
+                                continue
+
+                            if self.skip_deform and bone.bone.use_deform:
+                                continue
+
+                            bone.select = bool(bone.custom_shape) if self.has_shape else True
 
         return {'FINISHED'}
 
@@ -671,16 +677,33 @@ class AdjustAnimation(Operator):
     root_motion: StringProperty(name = "Root Motion", default="")
 
     position_x: BoolProperty(name="X", 
-                               description="freeze the Position X",
+                               description="Delete the Position X",
                                default=True)
     
     position_y: BoolProperty(name="Y", 
-                               description="freeze the Position Y",
+                               description="Delete the Position Y",
                                default=True)
     
     position_z: BoolProperty(name="Z", 
-                               description="freeze the Position Z",
+                               description="Delete the Position Z",
                                default=True)
+    
+    rotation_x: BoolProperty(name="X", 
+                               description="Delete the Rotation X",
+                               default=False)
+    
+    rotation_y: BoolProperty(name="Y", 
+                               description="Delete the Rotation Y",
+                               default=False)
+    
+    rotation_z: BoolProperty(name="Z", 
+                               description="Delete the Rotation Z",
+                               default=False)
+    
+    scale_freeze: BoolProperty(name="Delete the scale", 
+                               description="Delete the Scale",
+                               default=False)
+
 
     all_slots:BoolProperty(name="All Slots", 
                                description="Apply these effects in all slots",
@@ -847,11 +870,21 @@ class AdjustAnimation(Operator):
                         context.active_object.data,
                         "bones", text="")
             
-            row = column.split(factor=0.20, align=True)
-            row.label(text="")
+            row = column.row(align=True)
+            row.label(text="Location")
             row.prop(self, "position_x", toggle=True)
             row.prop(self, "position_y", toggle=True)
             row.prop(self, "position_z", toggle=True)
+
+            row = column.row(align=True)
+            row.label(text="Rotation")
+            row.prop(self, "rotation_x", text="X", toggle=True)
+            row.prop(self, "rotation_y", text="Y", toggle=True)
+            row.prop(self, "rotation_z", text="Z", toggle=True)
+
+            row = column.split(factor=0.20, align=True)
+            row.label(text="Scale")
+            row.prop(self, "scale_freeze", text="Delete the Scale", toggle=True)
             
         row = column.split(factor=0.05, align=True)
         row.label(text="")
@@ -931,27 +964,57 @@ class AdjustAnimation(Operator):
                     if self.root_motion in channelbag.groups:
                         group = channelbag.groups[self.root_motion]
 
-                        i = -1
+                        pl = -1
+                        pr = -1
                         del_fc = []
                         for fcurve in group.channels:
                             data_path = fcurve.data_path
-                            
-                            if not data_path.endswith('location') or not self.root_motion in data_path:
+
+                            if not self.root_motion in data_path:
                                 continue
-
-                            i += 1
-
-                            if i == 0 and self.position_x:
-                                if not fcurve in del_fc:
-                                    del_fc.append(fcurve)
                             
-                            if i == 1 and self.position_z:
-                                if not fcurve in del_fc:
-                                    del_fc.append(fcurve)
+                            if data_path.endswith('location'):
+                                pl += 1
+
+                                if pl == 0 and not self.position_x:
+                                    continue
+                                
+                                if pl == 1 and not self.position_y:
+                                    continue
+
+                                if pl == 2 and not self.position_z:
+                                    continue
+
+                            if 'rotation' in data_path:
+                                pr += 1
+
+                                if data_path.endswith('rotation_quaternion'):
+
+                                    if pr == 0 and (not self.rotation_x or not self.rotation_y or not self.rotation_z):
+                                        continue
+
+                                    if pr == 1 and not self.rotation_x:
+                                        continue
+                                    
+                                    if pr == 2 and not self.rotation_y:
+                                        continue
+
+                                    if pr == 3 and not self.rotation_z:
+                                        continue
+                                else:
+                                    if pr == 0 and not self.rotation_x:
+                                        continue
+                                    
+                                    if pr == 1 and not self.rotation_y:
+                                        continue
+
+                                    if pr == 2 and not self.rotation_z:
+                                        continue
+
+                            if data_path.endswith('scale') and not self.scale_freeze:
+                                continue
                             
-                            if i == 2 and self.position_y:
-                                if not fcurve in del_fc:
-                                    del_fc.append(fcurve)
+                            del_fc.append(fcurve)
                             
                         for fc in del_fc:
                             channelbag.fcurves.remove(fc)
@@ -1362,7 +1425,6 @@ class ConvertBoneNaming(Operator):
                 bone.name = bone.name.rsplit(":", 1)[1]
 
         bone_map = dict()
-        additional_bones = {}
         for src_name, trg_name in bone_names_map.items():
             
             if not trg_name:
@@ -1387,7 +1449,6 @@ class ConvertBoneNaming(Operator):
             #update the map
             bone_map[src_name] = src_bone.name
 
-        bone_map.update(additional_bones)
         return bone_map
 
     def execute(self, context):
@@ -1501,6 +1562,103 @@ class ConvertBoneNaming(Operator):
         bpy.ops.object.mode_set(mode= current_m)
 
         return {'FINISHED'}
+
+class ApplyAsRestPose(Operator):
+    """Apply the pose as a rest pose and align the mesh to this new rest pose"""
+    bl_idname = "object.retarget_apply_as_rest_pose"
+    bl_label = "Apply As Rest Pose"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    only_selected: BoolProperty(name="Only Selected Bone", 
+                               description="Apply the pose as a rest pose only on selected bone", 
+                               default=False)
+    apply: BoolProperty(name="Apply", default=True)
+
+    @classmethod
+    def poll(cls, context):
+        if not context.active_object:
+            return False
+        if context.object.type != 'ARMATURE':
+            return False
+        return True
+    
+    def draw(self, context):
+        layout = self.layout
+        column = layout.column()
+
+       
+        for ob in context.selected_objects:
+            if ob.animation_data and ob.animation_data.action:
+                row = column.row()
+                t = "--It will break the Action--".center(50)
+                row.label(text= t, icon='ERROR')
+                break
+
+        row = column.split(factor=0.30, align=True)
+        row.label(text="")
+        row.prop(self, "only_selected")
+
+        row = column.split(factor=0.30, align=True)
+        row.label(text="")
+        row.prop(self, "apply", toggle=True)
+    
+    def execute(self, context):
+
+        if not self.apply:
+            return {'FINISHED'}
+
+        current_m = context.mode
+        bpy.ops.object.mode_set(mode='POSE')
+
+
+        armatures = context.selected_objects
+        for ob in armatures:
+
+            if ob.type != 'ARMATURE':
+                continue
+
+            context.view_layer.objects.active = ob
+
+            exit = False
+            #can't apply the armature with sape key
+            for mesh in ob.children:
+                if mesh.data.shape_keys and len(mesh.data.shape_keys.key_blocks) > 1:
+                    self.report({'WARNING'}, f"Apply the shape key in {mesh.name}")
+                    exit = True
+
+            
+            if exit:
+                continue
+           
+            #duplic mod and apply
+            if self.only_selected:
+                for bone in ob.pose.bones:
+                    if bone.select == True:
+                        continue
+                    bone.location = [0,0,0]
+                    bone.rotation_euler = [0,0,0]
+                    bone.scale = [1,1,1]
+ 
+            for mesh in ob.children:
+                
+                for mod in mesh.modifiers:
+                    if mod.type == 'ARMATURE' and mod.object == ob:
+                        new_modifier_name = mod.name + "_copy"
+                        new_mod = mesh.modifiers.new(name=new_modifier_name, type=mod.type)
+                        bone_utils.copy_modifier_properties(mod, new_mod)
+                        with context.temp_override(object=mesh):
+                            try:
+                                bpy.ops.object.modifier_apply( modifier=new_mod.name)
+                            except RuntimeError:
+                                self.report({'WARNING'}, f"Error applying {new_modifier_name} to {mesh.name}")
+
+                        break
+
+            bpy.ops.pose.armature_apply(selected= self.only_selected)
+
+        bpy.ops.object.mode_set(mode=current_m)
+        return {'FINISHED'}
+
 
 class CreateTransformOffset(Operator):
     """Apply the scale ( without breaking the animation) / Scale the Character and setup an Empty to preserve final transform"""
@@ -1769,8 +1927,15 @@ class ExtractMetarig(Operator):
 
     no_face: BoolProperty(name='No face bones',
                           default=True)
+    
+    no_breast: BoolProperty(name='No breast bones',
+                          default=True)
 
     rigify_names: BoolProperty(name='Use rigify names',
+                               default=True)
+    
+    other_bone: BoolProperty(name='Add Other Bone',
+                             description='Include additional bones (such as clothing bone)',
                                default=True)
 
     assign_metarig: BoolProperty(name='Assign metarig',
@@ -1807,9 +1972,19 @@ class ExtractMetarig(Operator):
         row.label(text="No Face Bones")
         row.prop(self, 'no_face', text='')
 
+
+        row = column.split(factor=0.5, align=True)
+        row.label(text="No Breast Bones")
+        row.prop(self, 'no_breast', text='')
+
         row = column.split(factor=0.5, align=True)
         row.label(text="Use Rigify Names")
         row.prop(self, 'rigify_names', text='')
+
+        if self.rigify_names:
+            row = column.split(factor=0.5, align=True)
+            row.label(text="Add Other Bone")
+            row.prop(self, 'other_bone', text='')
 
         row = column.split(factor=0.5, align=True)
         row.label(text="Assign Metarig")
@@ -1874,12 +2049,15 @@ class ExtractMetarig(Operator):
                 rigged = (ob for ob in src_object.children)
 
                 for ob in rigged:
-                    ob.data.transform(src_object.matrix_local)
+                    if ob and ob.data:
+                        ob.data.transform(src_object.matrix_local)
 
                 src_armature.transform(src_object.matrix_local)
                 src_object.matrix_local = Matrix()
 
             met_skeleton = bone_mapping.RigifyMeta()
+
+            bone_names_map = dict()
 
             if self.rigify_names:
                 # check if doesn't contain rigify deform bones already
@@ -1889,6 +2067,8 @@ class ExtractMetarig(Operator):
                     src_skeleton, trg_skeleton = ConvertBoneNaming.convert_settings(current_settings, 'Rigify_Deform.py', context, validate=False)
                     #resetname = len(armatures) > 1
                     #TODO check it
+                    bone_names_map = src_skeleton.conversion_map(trg_skeleton)
+
                     ConvertBoneNaming.rename_bones(src_object, src_skeleton, trg_skeleton, skip_ik=True, reset=False)
                     src_skeleton = bone_mapping.RigifySkeleton()
 
@@ -1912,12 +2092,36 @@ class ExtractMetarig(Operator):
                                 else:
                                     setattr(src_skeleton.face, name_attr, new_name)
 
+            else:
+                self.other_bone = False
 
-            # bones that have rigify attr will be copied when the metarig is in edit mode
-            additional_bones = [(b.name, b.rigify_type) for b in src_object.pose.bones if b.rigify_type]
+            if self.other_bone:
 
+                for bone in src_object.pose.bones:
+                    if bone.name not in bone_names_map.values() and bone.name != "Root":
+                        bone.rigify_type = "basic.super_copy"
+                        
+
+            # if self.other_bone:
+
+            #     for bone in src_object.pose.bones:
+            #         if bone.name not in bone_names_map.values() and bone.name != "Root":
+
+            #             if bone.child and bone.parent and bone.parent in bone_names_map.values():
+            #                 bone.rigify_type = "limbs.simple_tentacle"
+
+            #             elif not bone.child and bone.parent and bone.parent in bone_names_map.values():
+            #                 bone.rigify_type = "basic.super_copy"
+
+            #             additional_bones.append((bone.name, bone.rigify_type))
+
+             # bones that have rigify attr will be copied when the metarig is in edit mode
+                additional_bones = [(b.name, b.rigify_type) for b in src_object.pose.bones if b.rigify_type]
+
+           
             try:
                 metarig = next(ob for ob in context.scene.objects if ob.type == 'ARMATURE' and ob.data.rigify_target_rig == src_object)
+                #check visibility 
             except AttributeError:
                 self.report({'WARNING'}, 'Rigify Add-On not enabled')
                 return {'CANCELLED'}
@@ -2162,54 +2366,85 @@ class ExtractMetarig(Operator):
 
                     met_armature.edit_bones.remove(face_bone)
 
-            for src_name, src_attr in additional_bones:
-                new_bone_name = bone_utils.copy_bone_to_arm(src_object, metarig, src_name, suffix="")
-
-                if 'chain' in src_attr:  # TODO: also fingers
-                    # working around weird bug: sometimes src_armature.bones causes KeyError even if the bone is there
-                    bone = next((b for b in src_armature.bones if b.name == src_name), None)
-
-                    new_parent_name = new_bone_name
-                    while bone:
-                        # optional: use connect
-                        try:
-                            bone = bone.children[0]
-                        except IndexError:
-                            break
-
-                        child_bone_name = bone_utils.copy_bone_to_arm(src_object, metarig, bone.name, suffix="")
-                        child_bone = met_armature.edit_bones[child_bone_name]
-                        child_bone.parent = met_armature.edit_bones[new_parent_name]
-                        child_bone.use_connect = True
-
-                        bone.name = f"DEF-{bone.name}"
-                        new_parent_name = child_bone_name
-
+            if self.no_breast:
                 try:
-                    bone = next((b for b in src_armature.bones if b.name == src_name), None)
-                    
-                    if bone:
-                        if bone.parent:
-                            # FIXME: should use mapping to get parent bone name
-                            parent_name = bone.parent.name.replace('DEF-', '')
-                            met_armature.edit_bones[new_bone_name].parent = met_armature.edit_bones[parent_name]
-                        if ".raw_" in src_attr:
-                            met_armature.edit_bones[new_bone_name].use_deform = bone.use_deform
-                        elif bone.name.startswith('DEF-'):
-                            # already a DEF, need to strip that from metarig bone instead
-                            met_armature.edit_bones[new_bone_name].name = new_bone_name.replace("DEF-", '')
-                        else:
-                            bone.name = f'DEF-{bone.name}'
+                    breastl = met_armature.edit_bones["breast.L"]
+                    breastr = met_armature.edit_bones["breast.R"]
+                    met_armature.edit_bones.remove(breastl)
+                    met_armature.edit_bones.remove(breastr)
                 except KeyError:
-                    self.report({'WARNING'}, "bones not found in target, perhaps wrong preset?")
-                    continue
+                    pass
+
+            name_collect = "Other Bone"
+            try:
+                ob_collection = met_armature.collections[name_collect]
+            except KeyError:
+                ob_collection = met_armature.collections.new(name_collect)
+                ob_collection.is_visible = True
+            other_bone_found = False
+
+            if self.other_bone:
+
+                for src_name, src_attr in additional_bones:
+
+                    new_bone_name = bone_utils.copy_bone_to_arm(src_object, metarig, src_name, suffix="")
+                    new_b = met_armature.edit_bones[new_bone_name]
+                    for coll in new_b.collections:
+                        coll.unassign(new_b)
+                    other_bone_found = True
+                    ob_collection.assign(new_b)
+
+                    if 'chain' in src_attr:  # TODO: also fingers
+                        # working around weird bug: sometimes src_armature.bones causes KeyError even if the bone is there
+                        bone = next((b for b in src_armature.bones if b.name == src_name), None)
+
+                        new_parent_name = new_bone_name
+                        while bone:
+                            # optional: use connect
+                            try:
+                                bone = bone.children[0]
+                            except IndexError:
+                                break
+
+                            child_bone_name = bone_utils.copy_bone_to_arm(src_object, metarig, bone.name, suffix="")
+                            child_bone = met_armature.edit_bones[child_bone_name]
+                            child_bone.parent = met_armature.edit_bones[new_parent_name]
+                            child_bone.use_connect = True
+
+                            bone.name = f"DEF-{bone.name}"
+                            new_parent_name = child_bone_name
+
+                    try:
+                        bone = next((b for b in src_armature.bones if b.name == src_name), None)
+                        
+                        if bone:
+                            if bone.parent:
+                                # FIXME: should use mapping to get parent bone name
+                                parent_name = bone.parent.name.replace('DEF-', '')
+                                met_armature.edit_bones[new_bone_name].parent = met_armature.edit_bones[parent_name]
+                            if ".raw_" in src_attr:
+                                met_armature.edit_bones[new_bone_name].use_deform = bone.use_deform
+                            elif bone.name.startswith('DEF-'):
+                                # already a DEF, need to strip that from metarig bone instead
+                                met_armature.edit_bones[new_bone_name].name = new_bone_name.replace("DEF-", '')
+                            else:
+                                bone.name = f'DEF-{bone.name}'
+                    except KeyError:
+                        self.report({'WARNING'}, "bones not found in target, perhaps wrong preset?")
+                        continue
 
             bpy.ops.object.mode_set(mode='POSE')
-            # now we can copy the stored rigify attrs
-            for src_name, src_attr in additional_bones:
-                src_meta = src_name[4:] if src_name.startswith('DEF-') else src_name
-                metarig.pose.bones[src_meta].rigify_type = src_attr
-                # TODO: should copy rigify options of specific types as well
+
+            if self.other_bone:
+                #add other bone in interface
+                if other_bone_found:
+                    bpy.ops.armature.rigify_collection_add_ui_row(row=1, add=True)
+                    bpy.ops.armature.rigify_collection_set_ui_row(index= ob_collection.index, row=1)
+                # now we can copy the stored rigify attrs
+                for src_name, src_attr in additional_bones:
+                    src_meta = src_name[4:] if src_name.startswith('DEF-') else src_name
+                    metarig.pose.bones[src_meta].rigify_type = src_attr
+                    # TODO: should copy rigify options of specific types as well
 
             if current_settings.left_leg.upleg_twist_02 or current_settings.left_leg.leg_twist_02:
                 metarig.pose.bones['thigh.L']['RigifyParameters.segments'] = 3
@@ -2402,7 +2637,7 @@ def limit_scale(obj):
 """
 
 class ConvertGameFriendly(Operator):
-    """Convert Rigify (0.5) rigs to a Game Friendly hierarchy"""
+    """Convert Rigify rigs to a Game Friendly hierarchy"""
     bl_idname = "armature.retarget_convert_gamefriendly"
     bl_label = "Rigify Game Friendly"
     bl_description = "Make the rigify deformation bones a one root rig (Select a Rigify Armature)"
@@ -2459,14 +2694,13 @@ class ConvertGameFriendly(Operator):
         bpy.ops.object.mode_set(mode='POSE')
         
         armatures = context.selected_objects
-        for armature in armatures:
+        for ob in armatures:
 
-            if armature.type != 'ARMATURE':
+            if ob.type != 'ARMATURE':
                 continue
-            if not armature.data.get("rig_id"):
+            if not ob.data.get("rig_id"):
                 continue
 
-            ob = armature
             context.view_layer.objects.active = ob
 
             if self.keep_backup:
@@ -3279,18 +3513,7 @@ class ConstrainToArmature(Operator):
 
             bone_names_map = dict()
 
-            trg_action = trg_ob.animation_data.action if trg_ob.animation_data and trg_ob.animation_data.action else None
-            channelbag = None
-            if trg_action:
-                for slot in trg_action.slots:
-
-                    if slot.target_id_type != 'OBJECT':
-                        continue
-                    if not  (trg_ob in slot.users() ):
-                        continue
-                    channelbag = anim_utils.action_get_channelbag_for_slot(trg_action, slot)
-                    break
-
+           
             if self.same_bone_names:
                 
                 for bone in ob.pose.bones:
@@ -3299,29 +3522,12 @@ class ConstrainToArmature(Operator):
                         pb = trg_ob.pose.bones[bone.name]
                     except KeyError:
                         continue
-
-                    if self.only_animated_Bone and channelbag:
-
-                        if bone.name in channelbag.groups:
-                            bone_names_map[bone.name] = bone.name
-                    elif not bone_utils.is_pose_bone_all_locked(bone):
+                        
+                    if not bone_utils.is_pose_bone_all_locked(bone):
                         bone_names_map[bone.name] = bone.name
             else:
                 bone_names_map = src_skeleton.conversion_map(trg_skeleton)
 
-                if self.only_animated_Bone and channelbag:
-
-                    to_del = [] 
-                    for key_b_name, b_name in bone_names_map.items():
-                        if not key_b_name:
-                            continue
-
-                        if not b_name in channelbag.groups:
-                            to_del.append(key_b_name)
-                            
-
-                    for name in to_del:
-                        del bone_names_map[name]
 
             if not self.same_bone_names:
                 def_skeleton = preset_handler.get_preset_skel(src_settings.deform_preset)
@@ -3365,6 +3571,39 @@ class ConstrainToArmature(Operator):
                     root = self.root_motion_bone_sr
                     
                 bone_names_map[root] = self.root_motion_bone 
+
+
+            # only_animated_Bone -------------------------------
+            trg_action = trg_ob.animation_data.action if trg_ob.animation_data and trg_ob.animation_data.action else None
+            channelbag = None
+            if trg_action:
+                for slot in trg_action.slots:
+
+                    if slot.target_id_type != 'OBJECT':
+                        continue
+                    if not  (trg_ob in slot.users() ):
+                        continue
+                    channelbag = anim_utils.action_get_channelbag_for_slot(trg_action, slot)
+                    break
+
+            if self.only_animated_Bone:
+                if channelbag:
+
+                    to_del = [] 
+                    for key_b_name, b_name in bone_names_map.items():
+                        if not key_b_name:
+                            continue
+
+                        if not b_name in channelbag.groups:
+                            to_del.append(key_b_name)
+                            
+
+                    for name in to_del:
+                        del bone_names_map[name]
+
+                else:
+                    bone_names_map.clear()
+            #--------------
         
             if self.only_selected:
                 b_names = list(bone_names_map.keys())
@@ -3467,8 +3706,8 @@ class ConstrainToArmature(Operator):
                     if not self.same_bone_names:
                         if self.match_object_transform:
                             new_bone.transform(ob.matrix_world)
-                        elif self.match_object_transform_s:
-                            new_bone.transform(ob.matrix_world)
+                    elif self.match_object_transform_s:
+                        new_bone.transform(ob.matrix_world)
                     new_bone.transform(trg_ob.matrix_world.inverted_safe())
                 elif self.match_transform == 'World':
                     new_bone.head = new_bone.parent.head
@@ -3477,8 +3716,8 @@ class ConstrainToArmature(Operator):
                     if not self.same_bone_names:
                         if self.match_object_transform:
                             new_bone.transform(ob.matrix_world)
-                        elif self.match_object_transform_s:
-                            new_bone.transform(ob.matrix_world)
+                    elif self.match_object_transform_s:
+                        new_bone.transform(ob.matrix_world)
                 else:
                     src_bone = ob.data.bones[src_name]
                     src_z_axis_neg = Vector((0.0, 0.0, 1.0)) @ src_bone.matrix_local.inverted().to_3x3()
@@ -3490,9 +3729,9 @@ class ConstrainToArmature(Operator):
                         if self.match_object_transform:
                             new_bone.transform(ob.matrix_world)
                             new_bone.transform(trg_ob.matrix_world.inverted())
-                        elif self.match_object_transform_s:
-                            new_bone.transform(ob.matrix_world)
-                            new_bone.transform(trg_ob.matrix_world.inverted())
+                    elif self.match_object_transform_s:
+                        new_bone.transform(ob.matrix_world)
+                        new_bone.transform(trg_ob.matrix_world.inverted())
 
                 if not self.same_bone_names:
                     if self.copy_IK_roll_hands:
@@ -4026,15 +4265,6 @@ class BakeConstrainedActions(Operator):
 
         return {'FINISHED'}
 
-
-def crv_bone_name(fcurve):
-    p_bone_prefix = 'pose.bones['
-    if not fcurve.data_path.startswith(p_bone_prefix):
-        return
-    data_path = fcurve.data_path
-    return data_path[len(p_bone_prefix):].rsplit('"]', 1)[0].strip('"[')
-
-
 def is_bone_floating(bone, hips_bone_name):
     binding_constrs = ['COPY_LOCATION', 'COPY_ROTATION', 'COPY_TRANSFORMS']
     while bone.parent:
@@ -4224,7 +4454,37 @@ class AddRootMotion(Operator):
     motion_bone: StringProperty(name="Motion",
                                 description="select motion bone ( most of the time it's the hips bone )",
                                 default="")
+    
     del_keyframe: BoolProperty(name="Delete KeyFrame", default=False)
+
+    position_x: BoolProperty(name="X", 
+                               description="Delete the Position X",
+                               default=True)
+    
+    position_y: BoolProperty(name="Y", 
+                               description="Delete the Position Y",
+                               default=True)
+    
+    position_z: BoolProperty(name="Z", 
+                               description="Delete the Position Z",
+                               default=True)
+    
+    rotation_x: BoolProperty(name="X", 
+                               description="Delete the Rotation X",
+                               default=False)
+    
+    rotation_y: BoolProperty(name="Y", 
+                               description="Delete the Rotation Y",
+                               default=False)
+    
+    rotation_z: BoolProperty(name="Z", 
+                               description="Delete the Rotation Z",
+                               default=False)
+    
+    scale_freeze: BoolProperty(name="Delete the scale", 
+                               description="Delete the Scale",
+                               default=False)
+
 
     root_motion_bone: StringProperty(name="Root Motion",
                                      description="select the new motion bone ( root bone )",
@@ -4341,6 +4601,24 @@ class AddRootMotion(Operator):
                 
         row = column.row(align=False)
         row.prop(self, "del_keyframe")
+
+        if self.del_keyframe:
+
+            row = column.row(align=True)
+            row.label(text="Location")
+            row.prop(self, "position_x", text="X", toggle=True)
+            row.prop(self, "position_y", text="Y", toggle=True)
+            row.prop(self, "position_z", text="Z", toggle=True)
+
+            row = column.row(align=True)
+            row.label(text="Rotation")
+            row.prop(self, "rotation_x", text="X", toggle=True)
+            row.prop(self, "rotation_y", text="Y", toggle=True)
+            row.prop(self, "rotation_z", text="Z", toggle=True)
+
+            row = column.split(factor=0.20, align=True)
+            row.label(text="Scale")
+            row.prop(self, "scale_freeze", text="Delete the Scale", toggle=True)
 
         #separator
         row = column.row()
@@ -4740,12 +5018,12 @@ class AddRootMotion(Operator):
             self.action_offs(context, current_m)
 
             if self.del_keyframe :
-                self.del_Keyframe(context)
+                self.del_Keyframe_f(context)
 
         bpy.ops.object.mode_set(mode= current_m)
         return {'FINISHED'}
     
-    def del_Keyframe(self, context):
+    def del_Keyframe_f(self, context):
 
         if self.bone_or_channel == "channel":
             bone_name = self.channel
@@ -4760,17 +5038,60 @@ class AddRootMotion(Operator):
         if bone_name in self.channelbag.groups:
 
             group = self.channelbag.groups[bone_name]
-            list_fc = []
+            del_fc = []
+            pl = -1
+            pr = -1
             
             for fcurve in group.channels:
                 data_path = fcurve.data_path
                 
                 if self.bone_or_channel == "bone" and not bone_name in data_path:
                     continue
-                
-                list_fc.append(fcurve)
 
-            for fc in list_fc:
+                if data_path.endswith('location'):
+                    pl += 1
+
+                    if pl == 0 and not self.position_x:
+                        continue
+                    
+                    if pl == 1 and not self.position_y:
+                        continue
+
+                    if pl == 2 and not self.position_z:
+                        continue
+
+                if 'rotation' in data_path:
+                    pr += 1
+
+                    if data_path.endswith('rotation_quaternion'):
+
+                        if pr == 0 and (not self.rotation_x or not self.rotation_y or not self.rotation_z):
+                            continue
+
+                        if pr == 1 and not self.rotation_x:
+                            continue
+                        
+                        if pr == 2 and not self.rotation_y:
+                            continue
+
+                        if pr == 3 and not self.rotation_z:
+                            continue
+                    else:
+                        if pr == 0 and not self.rotation_x:
+                            continue
+                        
+                        if pr == 1 and not self.rotation_y:
+                            continue
+
+                        if pr == 2 and not self.rotation_z:
+                            continue
+
+                if data_path.endswith('scale') and not self.scale_freeze:
+                    continue
+                
+                del_fc.append(fcurve)
+
+            for fc in del_fc:
                 self.channelbag.fcurves.remove(fc)
             
             bone.location[0] = 0
@@ -5024,6 +5345,7 @@ classes = (
 	 MergeHeadTails,
 	 ConstrainToArmature,
 	 BakeConstrainedActions,
+     ApplyAsRestPose,
 	 CreateTransformOffset,
 	 AddRoot,
 	 AddRootMotion,

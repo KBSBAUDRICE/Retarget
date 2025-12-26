@@ -1,9 +1,15 @@
 import bpy
 from bpy.props import StringProperty
+from bpy.props import BoolProperty
 from bpy.props import FloatProperty
 from bpy.props import PointerProperty
 from bpy.types import Context, Operator, Menu, Panel
 from bl_operators.presets import AddPresetBase
+
+from bpy.app.translations import (
+    pgettext_rpt as rpt_,
+    pgettext_data as data_,
+)
 
 from . import operators
 from . import preset_handler
@@ -61,6 +67,9 @@ class ConvertMenu(Menu):
 
         row = layout.row()
         row.operator(operators.ExtractMetarig.bl_idname)
+
+        row = layout.row()
+        row.operator(operators.ApplyAsRestPose.bl_idname)
 
         row = layout.row()
         row.operator(operators.CreateTransformOffset.bl_idname)
@@ -153,6 +162,12 @@ class VIEW3D_MT_PIE_Retarget(Menu):
 
         
         gap = pie.column()
+        gap.separator()
+        gap.separator()
+        gap.separator()
+        gap.separator()
+        gap.separator()
+        gap.separator()
 
         menu = gap.box()
         my_text = "CONVERSION".center(40)
@@ -160,6 +175,7 @@ class VIEW3D_MT_PIE_Retarget(Menu):
         menu.operator(operators.ConvertGameFriendly.bl_idname)
         menu.operator(operators.ConvertBoneNaming.bl_idname)
         menu.operator(operators.ExtractMetarig.bl_idname)
+        menu.operator(operators.ApplyAsRestPose.bl_idname)
         menu.operator(operators.CreateTransformOffset.bl_idname)
         menu.operator(operators.MergeHeadTails.bl_idname)
 
@@ -332,65 +348,10 @@ class VIEW3D_PT_retarget_rename_advanced(Panel):
         row.operator(ActionRemoveRenameData.bl_idname, text="Remove Rename Data")
 
 
-class ExecutePresetArmatureRetarget(Operator):
-    """Apply a Bone Retarget Preset"""
-    bl_idname = "object.retarget_armature_preset_apply"
-    bl_label = "Apply Bone Retarget Preset"
-
-    filepath: StringProperty(
-        subtype='FILE_PATH',
-        options={'SKIP_SAVE'},
-    )
-    menu_idname: StringProperty(
-        name="Menu ID Name",
-        description="ID name of the menu this was called from",
-        options={'SKIP_SAVE'},
-    )
-
-    def execute(self, context):
-        from os.path import basename, splitext
-        filepath = self.filepath
-
-        # change the menu title to the most recently chosen option
-        preset_class = VIEW3D_MT_retarget_presets
-        preset_class.bl_label = bpy.path.display_name(basename(filepath), title_case=False)
-
-        ext = splitext(filepath)[1].lower()
-
-        if ext not in {".py", ".xml"}:
-            self.report({'ERROR'}, "Unknown file type: %r" % ext)
-            return {'CANCELLED'}
-
-        if hasattr(preset_class, "reset_cb"):
-            preset_class.reset_cb(context)
-
-        if ext == ".py":
-            try:
-                bpy.utils.execfile(filepath)
-            except Exception as ex:
-                self.report({'ERROR'}, "Failed to execute the preset: " + repr(ex))
-
-        elif ext == ".xml":
-            import rna_xml
-            rna_xml.xml_file_run(context,
-                                 filepath,
-                                 preset_class.preset_xml_map)
-
-        if hasattr(preset_class, "post_cb"):
-            preset_class.post_cb(context)
-
-        preset_handler.validate_preset(context.object.data)
-
-        settings = context.object.data.retarget_retarget
-        preset_handler.reset_preset_names(settings)
-
-        return {'FINISHED'}
-
-
 class AddPresetArmatureRetarget(AddPresetBase, Operator):
     """Add a Bone Retarget Preset"""
     bl_idname = "object.retarget_armature_preset_add"
-    bl_label = "Add Bone Retarget Preset"
+    bl_label = "Retarget Preset (select a armature)"
     preset_menu = "VIEW3D_MT_retarget_presets"
 
     # variable used for all preset values
@@ -417,12 +378,11 @@ class AddPresetArmatureRetarget(AddPresetBase, Operator):
         "skeleton.right_leg_ik",
         "skeleton.left_leg_ik",
 
-        "skeleton.deform_preset"
+        "skeleton.deform_preset",
+        "skeleton.root",
     ]
 
-    # where to store the preset
     preset_subdir = preset_handler.PRESETS_SUBDIR
-
 
 class ClearArmatureRetarget(Operator):
     bl_idname = "object.retarget_armature_clear"
@@ -624,7 +584,8 @@ class MirrorSettings(Operator):
 class VIEW3D_MT_retarget_presets(Menu):
     bl_label = "Retarget Presets"
     preset_subdir = AddPresetArmatureRetarget.preset_subdir
-    preset_operator = ExecutePresetArmatureRetarget.bl_idname
+    preset_operator = "script.execute_preset"
+
     draw = Menu.draw_preset
 
 
@@ -639,13 +600,21 @@ class BindFromPanelSelection(Operator):
         return context.mode != 'EDIT_ARMATURE' and context.scene.retarget_bind_to and context.object != context.scene.retarget_bind_to and context.object.type == 'ARMATURE'
     
     def execute(self, context: Context):
+
         for ob in context.selected_objects:
-            ob.select_set(ob == context.object)
+            if not ob.hide_viewport:
+                ob.select_set(ob == context.object)
+       
+        if not context.scene.retarget_bind_to.hide_viewport and context.scene.retarget_bind_to.name in context.view_layer.objects:
+            context.scene.retarget_bind_to.select_set(True)
+
+        if len(context.selected_objects) < 2:
+            self.report({'WARNING'}, "A object is hidden")
+            return {'FINISHED'}
         
-        context.scene.retarget_bind_to.select_set(True)
         context.view_layer.objects.active = context.scene.retarget_bind_to
 
-        if context.scene.retarget_bind_to.animation_data.action:
+        if context.scene.retarget_bind_to.animation_data and context.scene.retarget_bind_to.animation_data.action:
             # TODO: this should be in the constrain operator
             bpy.ops.object.retarget_action_to_range()
         
@@ -736,7 +705,6 @@ class VIEW3D_PT_retarget_retarget(RetargetBasePanel, Panel):
         row.operator(AddPresetArmatureRetarget.bl_idname, text="+")
         row.operator(AddPresetArmatureRetarget.bl_idname, text="-").remove_active = True
 
-
 class VIEW3D_PT_retarget_retarget_face(RetargetBasePanel, Panel):
     bl_label = "Face"
     bl_options = {'DEFAULT_CLOSED'}
@@ -745,6 +713,9 @@ class VIEW3D_PT_retarget_retarget_face(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
+        if not context.active_object or ob.type != 'ARMATURE':
+            return
+        
         skeleton = ob.data.retarget_retarget
 
         bsplit = layout.split(factor=0.85)
@@ -805,6 +776,9 @@ class VIEW3D_PT_retarget_retarget_fingers(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
+        if not context.active_object or ob.type != 'ARMATURE':
+            return
+        
         skeleton = ob.data.retarget_retarget
         
         sides = "right", "left"
@@ -846,11 +820,14 @@ class VIEW3D_PT_retarget_retarget_arms_IK(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
-        skeleton = ob.data.retarget_retarget
-        arm_bones = ('shoulder', 'arm', 'forearm', 'hand')
+        try:
 
-        self.sided_rows(ob, (skeleton.right_arm_ik, skeleton.left_arm_ik), arm_bones, suffix=" IK")
+            skeleton = ob.data.retarget_retarget
+            arm_bones = ('shoulder', 'arm', 'forearm', 'hand')
 
+            self.sided_rows(ob, (skeleton.right_arm_ik, skeleton.left_arm_ik), arm_bones, suffix=" IK")
+        except AttributeError:
+            pass
 
 class VIEW3D_PT_retarget_retarget_arms(RetargetBasePanel, Panel):
     bl_label = "Arms"
@@ -859,18 +836,21 @@ class VIEW3D_PT_retarget_retarget_arms(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
-        skeleton = ob.data.retarget_retarget
+        try:
 
-        row = layout.row()
-        row.prop(ob.data, "retarget_twist_on", text="Display Twist Bones")
-        
-        if ob.data.retarget_twist_on:
-            arm_bones = ('shoulder', 'arm', 'arm_twist', 'arm_twist_02', 'forearm', 'forearm_twist', 'forearm_twist_02', 'hand')
-        else:
-            arm_bones = ('shoulder', 'arm', 'forearm', 'hand')
+            skeleton = ob.data.retarget_retarget
 
-        self.sided_rows(ob, (skeleton.right_arm, skeleton.left_arm), arm_bones)
+            row = layout.row()
+            row.prop(ob.data, "retarget_twist_on", text="Display Twist Bones")
+            
+            if ob.data.retarget_twist_on:
+                arm_bones = ('shoulder', 'arm', 'arm_twist', 'arm_twist_02', 'forearm', 'forearm_twist', 'forearm_twist_02', 'hand')
+            else:
+                arm_bones = ('shoulder', 'arm', 'forearm', 'hand')
 
+            self.sided_rows(ob, (skeleton.right_arm, skeleton.left_arm), arm_bones)
+        except AttributeError:
+            pass
 
 class VIEW3D_PT_retarget_retarget_spine(RetargetBasePanel, Panel):
     bl_label = "Spine"
@@ -879,15 +859,18 @@ class VIEW3D_PT_retarget_retarget_spine(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
-        skeleton = ob.data.retarget_retarget
+        try:
 
-        for slot in ('head', 'neck', 'spine2', 'spine1', 'spine', 'hips'):
-            split = layout.split(factor=0.85)
-            split.prop_search(skeleton.spine, slot, ob.data, "bones", text="Chest" if slot == 'spine2' else slot.title())
-            props = split.operator(SetToActiveBone.bl_idname, text="<-")
-            props.attr_name = 'spine'
-            props.slot_name = slot
+            skeleton = ob.data.retarget_retarget
 
+            for slot in ('head', 'neck', 'spine2', 'spine1', 'spine', 'hips'):
+                split = layout.split(factor=0.85)
+                split.prop_search(skeleton.spine, slot, ob.data, "bones", text="Chest" if slot == 'spine2' else slot.title())
+                props = split.operator(SetToActiveBone.bl_idname, text="<-")
+                props.attr_name = 'spine'
+                props.slot_name = slot
+        except AttributeError:
+            pass
 
 class VIEW3D_PT_retarget_retarget_leg_IK(RetargetBasePanel, Panel):
     bl_label = "Legs IK"
@@ -895,12 +878,15 @@ class VIEW3D_PT_retarget_retarget_leg_IK(RetargetBasePanel, Panel):
 
     def draw(self, context):
         ob = context.object
-
-        skeleton = ob.data.retarget_retarget
         
-        leg_bones = ('upleg', 'leg', 'foot', 'toe')
-        self.sided_rows(ob, (skeleton.right_leg_ik, skeleton.left_leg_ik), leg_bones, suffix=" IK")
+        try:
 
+            skeleton = ob.data.retarget_retarget
+            
+            leg_bones = ('upleg', 'leg', 'foot', 'toe')
+            self.sided_rows(ob, (skeleton.right_leg_ik, skeleton.left_leg_ik), leg_bones, suffix=" IK")
+        except AttributeError:
+            pass
 
 class VIEW3D_PT_retarget_retarget_leg(RetargetBasePanel, Panel):
     bl_label = "Legs"
@@ -908,18 +894,21 @@ class VIEW3D_PT_retarget_retarget_leg(RetargetBasePanel, Panel):
     def draw(self, context):
         ob = context.object
 
-        skeleton = ob.data.retarget_retarget
+        try:
 
-        row = self.layout.row(align=True)
-        row.prop(ob.data, "retarget_twist_on", text="Display Twist Bones")
+            skeleton = ob.data.retarget_retarget
 
-        if ob.data.retarget_twist_on:
-            leg_bones = ('upleg', 'upleg_twist', 'upleg_twist_02', 'leg', 'leg_twist', 'leg_twist_02', 'foot', 'toe')
-        else:
-            leg_bones = ('upleg', 'leg', 'foot', 'toe')
+            row = self.layout.row(align=True)
+            row.prop(ob.data, "retarget_twist_on", text="Display Twist Bones")
 
-        self.sided_rows(ob, (skeleton.right_leg, skeleton.left_leg), leg_bones)
+            if ob.data.retarget_twist_on:
+                leg_bones = ('upleg', 'upleg_twist', 'upleg_twist_02', 'leg', 'leg_twist', 'leg_twist_02', 'foot', 'toe')
+            else:
+                leg_bones = ('upleg', 'leg', 'foot', 'toe')
 
+            self.sided_rows(ob, (skeleton.right_leg, skeleton.left_leg), leg_bones)
+        except AttributeError:
+            pass
 
 class VIEW3D_PT_retarget_retarget_root(RetargetBasePanel, Panel):
     bl_label = "Root"
@@ -928,30 +917,32 @@ class VIEW3D_PT_retarget_retarget_root(RetargetBasePanel, Panel):
         ob = context.object
         layout = self.layout
 
-        skeleton = ob.data.retarget_retarget
+        try:
 
-        split = layout.split(factor=0.85)
-        split.prop_search(skeleton, 'root', ob.data, "bones", text="Root")
-        s_props = split.operator(SetToActiveBone.bl_idname, text="<-")
-        s_props.attr_name = 'root'
-        s_props.sub_attr_name = ''
+            skeleton = ob.data.retarget_retarget
 
-        layout.separator()
-        row = layout.row()
-        row.prop(skeleton, 'deform_preset')
+            split = layout.split(factor=0.85)
+            split.prop_search(skeleton, 'root', ob.data, "bones", text="Root")
+            s_props = split.operator(SetToActiveBone.bl_idname, text="<-")
+            s_props.attr_name = 'root'
+            s_props.sub_attr_name = ''
 
-        row = layout.row()
-        row.operator(ClearArmatureRetarget.bl_idname, text="Clear All")
+            layout.separator()
+            row = layout.row()
+            row.prop(skeleton, 'deform_preset')
 
+            row = layout.row()
+            row.operator(ClearArmatureRetarget.bl_idname, text="Clear All")
+        except AttributeError:
+            pass
 
 def poll_armature_bind_to(self, object):
-    return object != bpy.context.object and object.type == 'ARMATURE'
+    return object != bpy.context.object and object.type == 'ARMATURE' 
 
 
 classes = (
 	 ClearArmatureRetarget,
 	 VIEW3D_MT_retarget_presets,
-	 ExecutePresetArmatureRetarget,
 	 AddPresetArmatureRetarget,
 	 SetToActiveBone,
 	 MirrorSettings,
