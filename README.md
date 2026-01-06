@@ -5,6 +5,17 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 
 https://youtu.be/iXRW5t6eEjE
 
+
+# Preview
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png))
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B8124276C-2028-4A0F-902F-50174347561E%7D.png))
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png))
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/animaide_f.png))
+
 ----------------------
 # FEATURES
 ----------------------
