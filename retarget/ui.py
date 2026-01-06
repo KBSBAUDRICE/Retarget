@@ -105,6 +105,7 @@ def pose_context_options(self, context):
     menu_header(layout)
 
     # use an operator enum property to populate a sub-menu
+    
     layout.menu(BindingsMenu.bl_idname)
     layout.menu(ConvertMenu.bl_idname)
     layout.menu(AnimMenu.bl_idname)
@@ -984,6 +985,7 @@ def register_classes():
     bpy.types.VIEW3D_MT_object_context_menu.append(pose_context_options)
     bpy.types.VIEW3D_MT_armature_context_menu.append(armature_context_options)
     bpy.types.DOPESHEET_HT_header.append(action_header_buttons)
+    bpy.types.GRAPH_HT_header.append(action_header_buttons)
 
 
 def unregister_classes():
@@ -992,6 +994,7 @@ def unregister_classes():
     bpy.types.VIEW3D_MT_object_context_menu.remove(pose_context_options)
     bpy.types.VIEW3D_MT_armature_context_menu.remove(armature_context_options)
     bpy.types.DOPESHEET_HT_header.remove(action_header_buttons)
+    bpy.types.GRAPH_HT_header.remove(action_header_buttons)
     
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

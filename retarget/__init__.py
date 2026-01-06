@@ -31,6 +31,9 @@ from . import ui
 from . import preferences
 from . import preset_handler
 from . import properties
+from .animaide import animaide_init
+
+import bpy
 
 def register():
     properties.register_classes()
@@ -40,8 +43,58 @@ def register():
 
     preset_handler.install_presets()
 
+    animaide_init.register_classes()
+
+    pref = bpy.context.preferences.addons[ preferences.addon_name].preferences
+
+    if pref.key_manager_ui == 'PANEL':
+        preferences.add_key_manager_panel()
+
+    if pref.anim_offset_ui == 'PANEL':
+        preferences.add_anim_offset_panel()
+
+    if pref.key_manager_ui == 'HEADERS':
+        preferences.add_key_manager_header()
+
+    if pref.anim_offset_ui == 'HEADERS':
+        preferences.add_anim_offset_header()
+
+    if pref.key_manager_ui == 'BOTH':
+        preferences.add_key_manager_panel()
+        preferences.add_key_manager_header()
+        preferences.key_manager_pref = 'BOTH'
+
+    if pref.anim_offset_ui == 'BOTH':
+        preferences.add_anim_offset_panel()
+        preferences.add_anim_offset_header()
+        preferences.anim_offset_pref = 'BOTH'
+
 
 def unregister():
+    animaide_init.unregister_classes()
+
+    pref = bpy.context.preferences.addons[preferences.addon_name].preferences
+
+    if pref.key_manager_ui == 'PANEL':
+        preferences.remove_key_manager_panel()
+
+    if pref.anim_offset_ui == 'PANEL':
+        preferences.remove_anim_offset_panel()
+
+    if pref.key_manager_ui == 'HEADERS':
+        preferences.remove_key_manager_header()
+
+    if pref.anim_offset_ui == 'HEADERS':
+        preferences.remove_anim_offset_header()
+
+    if pref.key_manager_ui == 'BOTH':
+        preferences.remove_key_manager_panel()
+        preferences.remove_key_manager_header()
+
+    if pref.anim_offset_ui == 'BOTH':
+        preferences.remove_anim_offset_panel()
+        preferences.remove_anim_offset_header()
+
     ui.unregister_classes()
     operators.unregister_classes()
     preferences.unregister_classes()

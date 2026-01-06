@@ -1572,6 +1572,10 @@ class ApplyAsRestPose(Operator):
     only_selected: BoolProperty(name="Only Selected Bone", 
                                description="Apply the pose as a rest pose only on selected bone", 
                                default=False)
+    apply_shape_key: BoolProperty(name="Apply All Shape Keys", 
+                                   description="The shape keys will prevent this operation",
+                                  default=False)
+    
     apply: BoolProperty(name="Apply", default=True)
 
     @classmethod
@@ -1600,6 +1604,10 @@ class ApplyAsRestPose(Operator):
 
         row = column.split(factor=0.30, align=True)
         row.label(text="")
+        row.prop(self, "apply_shape_key")
+    
+        row = column.split(factor=0.30, align=True)
+        row.label(text="")
         row.prop(self, "apply", toggle=True)
     
     def execute(self, context):
@@ -1622,9 +1630,22 @@ class ApplyAsRestPose(Operator):
             exit = False
             #can't apply the armature with sape key
             for mesh in ob.children:
+                if not mesh or not mesh.data:
+                    continue
                 if mesh.data.shape_keys and len(mesh.data.shape_keys.key_blocks) > 1:
-                    self.report({'WARNING'}, f"Apply the shape key in {mesh.name}")
-                    exit = True
+                    if self.apply_shape_key:
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                        mesh.select_set(True)
+                        context.view_layer.objects.active = mesh
+                        # select shape key
+                        mesh.active_shape_key_index = 0
+                        bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+                        mesh.select_set(False)
+                        context.view_layer.objects.active = ob
+                        bpy.ops.object.mode_set(mode='POSE')
+                    else:
+                        self.report({'WARNING'}, f"Apply the shape key in {mesh.name}")
+                        exit = True
 
             
             if exit:
@@ -3200,7 +3221,7 @@ class ConstrainToArmature(Operator):
         row.prop(self, 'constrain_root', text="")
 
 
-        if self.constrain_root != 'None' and sr_ob != None:
+        if self.constrain_root != 'None' and self.constrain_root != 'Object' and sr_ob != None:
             row = column.split(factor=self._prop_indent, align=True)
             row.label(text="")
             row.prop_search(self, 'root_motion_bone_sr',
@@ -4147,13 +4168,13 @@ class BakeConstrainedActions(Operator):
         for ob in sel_obs:
             if ob.type != 'ARMATURE':
                 continue
-            ob.select_set(False)
 
             trg_ob = self.get_trg_ob(ob)
             
             if not trg_ob:
                 continue
 
+            context.view_layer.objects.active = ob
             
             for pb in bone_utils.get_constrained_controls(ob, unselect=True, use_deform=not self.exclude_deform):
                 
@@ -4193,6 +4214,27 @@ class BakeConstrainedActions(Operator):
 
                 ob.animation_data.action.name = new_name
 
+                # find if there's constraint on object
+                if len(ob.constraints) > 0:
+
+                    ob.select_set(True)
+
+                    bpy.ops.nla.bake(frame_start=int(fr_start), frame_end=int(fr_end),
+                                 bake_types={'OBJECT'},
+                                 visual_keying=True, clear_constraints=False, use_current_action=True)
+                    
+                    for slot in ob.animation_data.action.slots:
+                        
+                        if slot.target_id_type != 'OBJECT' and not (ob in slot.users() ):
+                            continue
+
+                        channelbag = anim_utils.action_get_channelbag_for_slot(ob.animation_data.action, slot)
+                        new_group = channelbag.groups.new(f"{ob.name}|OBJECT")
+
+                        for fc in channelbag.fcurves:
+                            if not fc.group:
+                               fc.group = new_group
+
                 if not trg_ob.name in target_list:
                     target_list.append(trg_ob)
 
@@ -4210,6 +4252,10 @@ class BakeConstrainedActions(Operator):
                 
                 if not trg_ob:
                     continue
+
+                for constr in reversed(ob.constraints):
+                        ob.constraints.remove(constr)
+
                 for bone_name in constr_bone_names:
                     try:
                         pbone = ob.pose.bones[bone_name]
