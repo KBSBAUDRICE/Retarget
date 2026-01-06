@@ -39,7 +39,7 @@ https://youtu.be/iXRW5t6eEjE
 
 
 # FAQ
-
+- CurveTools allows you to modify selected keyframes even if they are not visible in the dope sheet editor or graph editor.
 - Read each tooltip carefully; some actions only affect the current slot, while others affect other animations.
 
 - This addon does not support Expy kit preset, you must make changes of the second line  (preset file) from 
