@@ -1,5 +1,5 @@
 # Retarget
-Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) with many new feature.
+Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) and Animaide (https://github.com/aresdevo/animaide) with many new feature.
 It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to make the task easier. You can add your own preset in the N-panel
 
 
@@ -8,6 +8,10 @@ https://youtu.be/iXRW5t6eEjE
 ----------------------
 # FEATURES
 ----------------------
+# Animaide
+- CurveTools
+- AnimOffset
+- KeyManager
 
 # Binding
 
