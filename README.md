@@ -8,7 +8,7 @@ https://youtu.be/iXRW5t6eEjE
 
 # Preview
 
-![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png))
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B8D46FC20-1F50-4D72-BA75-776F51371996%7D.png))
 
 ![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B8124276C-2028-4A0F-902F-50174347561E%7D.png))
 
