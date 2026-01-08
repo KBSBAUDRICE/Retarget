@@ -37,7 +37,7 @@ https://youtu.be/iXRW5t6eEjE
  - Rigify Game Friendly
  - Renames Bones
  - Extract Metarig
- - Apply As Rest Pose
+ - Apply As Rest Pose and align the mesh to this new rest pose
  - Apply Scale / Create Scale Offset
  - Merge Head/Tail
   
