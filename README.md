@@ -6,6 +6,9 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 
 https://youtu.be/iXRW5t6eEjE
 
+# Blender Extensions
+
+https://extensions.blender.org/add-ons/retarget/
 
 # Preview
 
