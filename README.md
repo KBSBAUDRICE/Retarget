@@ -31,6 +31,7 @@ https://extensions.blender.org/add-ons/retarget/
 # Binding
 
  - Bind to Active Armature
+ - Unbind Armature
  - Apply/disable/Remove constraints
  - Select Constrained Controls
  - Align Bones
