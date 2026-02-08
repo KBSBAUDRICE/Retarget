@@ -5,6 +5,7 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to mak
 # TUTO
 
 https://youtu.be/iXRW5t6eEjE
+
 https://youtu.be/7CayV9BEQ14
 
 # Blender Extensions
