@@ -1,29 +1,14 @@
 # Retarget 
 Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) and Animaide (https://github.com/aresdevo/animaide) since v2.0.0 with many new feature (COMPATIBLE ONLY WITH BLENDER 5 AND HIGHER VERSIONS).
-It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, etc.) to make the task easier. You can add your own preset in the N-panel
+It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to make the task easier. You can add your own preset in the N-panel
 
-# TUTO
-
-https://www.youtube.com/playlist?list=PLdUXkJ3Y-ZqGYr9qKwNFjUItzbfWL3Has
-
-# Blender Extensions
-
-https://extensions.blender.org/add-ons/retarget/
-
-# Preview
-
-![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B8D46FC20-1F50-4D72-BA75-776F51371996%7D.png))
-
-![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B8124276C-2028-4A0F-902F-50174347561E%7D.png))
-
-![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png))
-
-![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/animaide_f.png))
-
+# More tutorials
+- https://www.youtube.com/playlist?list=PLdUXkJ3Y-ZqGYr9qKwNFjUItzbfWL3Has
 ----------------------
 # FEATURES
 ----------------------
 # Animaide
+
 - CurveTools
 - AnimOffset
 - KeyManager
@@ -32,26 +17,35 @@ https://extensions.blender.org/add-ons/retarget/
 
  - Bind to Active Armature
  - Unbind Armature
- - Apply/disable/Remove constraints
+ - Apply/disable/Remove constraints 
  - Select Constrained Controls
  - Align Bones
   
 # Conversion
 
  - Rigify Game Friendly
- - Renames Bones
- - Extract Metarig
+ - Renames Bones (rig convertion)
+ - Extract Metarig (convert any humanoid rig to rigify)
  - Apply As Rest Pose and align the mesh to this new rest pose
- - Apply Scale / Create Scale Offset
+ - Apply Scale / Create Scale Offset ( AND FIX THE ANIMATION)
  - Merge Head/Tail
   
 # Animation
 
  - Action Range to Scene
  - Adjust Animation
- - Bake Constrained Actions
+ - Bake Constrained Actions ; "Include similar actions" allow you to bake multiple actions at once
  - Add Root Bone
  - Transfer Root Motion
+
+# Rigging
+
+- Surface Rig: Quickly add a rig on the surface of a mesh and on greace pencil
+
+
+# LOCATION
+
+It can be found in the context menu (right click) 
 
 
 # FAQ
@@ -60,3 +54,9 @@ https://extensions.blender.org/add-ons/retarget/
 
 - This addon does not support Expy kit preset, you must make changes of the second line  (preset file) from 
    "skeleton = bpy.context.object.data.expykit_retarget " to "skeleton = bpy.context.object.data.retarget_retarget"
+
+# Special Thank
+
+- pKrime for Expy-Kit
+- aresdevo for animaide
+- Pullusb for Surface Rig
