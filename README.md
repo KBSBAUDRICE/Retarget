@@ -40,7 +40,7 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
 
 # Rigging
 
-- Surface Rig: Quickly add a rig on the surface of a mesh and on greace pencil
+- Surface Rig: Quickly add a rig on the surface of a mesh and on grease pencil
 
 
 # LOCATION
