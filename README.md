@@ -7,6 +7,17 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
 
 # Blender Extension
 - https://extensions.blender.org/add-ons/retarget/
+
+# PREVIEW
+
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/%7B35C7CD33-9A89-41FC-B115-91FD731ADDAF%7D.png)
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/Image%20du%20presse-papiers.jpg)
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png)
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/animaide_f.png)
   
 ----------------------
 # FEATURES
