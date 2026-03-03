@@ -4,6 +4,10 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
 
 # More tutorials
 - https://www.youtube.com/playlist?list=PLdUXkJ3Y-ZqGYr9qKwNFjUItzbfWL3Has
+
+# Blender Extension
+- https://extensions.blender.org/add-ons/retarget/
+  
 ----------------------
 # FEATURES
 ----------------------
