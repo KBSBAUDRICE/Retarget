@@ -2,7 +2,7 @@
 Retarget it's a Fork of Expy Kit (https://github.com/pKrime/Expy-Kit) and Animaide (https://github.com/aresdevo/animaide) since v2.0.0 with many new feature (COMPATIBLE ONLY WITH BLENDER 5 AND HIGHER VERSIONS).
 It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to make the task easier. You can add your own preset in the N-panel
 
-# More tutorials
+# TUTO
 - https://www.youtube.com/playlist?list=PLdUXkJ3Y-ZqGYr9qKwNFjUItzbfWL3Has
 
 # Blender Extension
