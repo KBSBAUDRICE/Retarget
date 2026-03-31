@@ -18,7 +18,8 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
 ![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/AnimAide.png)
 
 ![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/animaide_f.png)
-  
+
+![Picture](https://github.com/KBSBAUDRICE/Retarget/blob/main/Image/action_manager.png)
 ----------------------
 # FEATURES
 ----------------------
