@@ -51,6 +51,7 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
  - Action Range to Scene
  - Adjust Animation
  - Bake Constrained Actions ; "Include similar actions" allow you to bake multiple actions at once
+ - Import Fbx
  - Add Root Bone
  - Transfer Root Motion
 
