@@ -81,3 +81,7 @@ It can be found in the context menu (right click)
 - pKrime for Expy-Kit
 - aresdevo for animaide
 - Pullusb for Surface Rig
+
+# Support Me
+
+https://ruyraeam.mychariow.shop/prd_mi16tx
