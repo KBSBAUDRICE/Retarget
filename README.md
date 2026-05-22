@@ -36,6 +36,9 @@ It is a retargeting tool, with many presets (Mixamo, Unreal, Vroid, MMD etc.) to
  - Apply/disable/Remove constraints 
  - Select Constrained Controls
  - Align Bones
+ - Mirror Support
+ - Bind to Active Metarig
+
   
 # Conversion
 
